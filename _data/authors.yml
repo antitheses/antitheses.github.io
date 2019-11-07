@@ -1,0 +1,11 @@
+# Sample Authors
+# Remove file or replace with your own
+
+suriya:
+  name: Suriyadeepan Ramamoorthy
+  picture: /images/dp-black.png
+  twitter: "@iamdionysus"
+  links:
+    - title: Twitter
+      url: https://twitter.com/iamdionysus
+      icon: fab fa-twitter-square

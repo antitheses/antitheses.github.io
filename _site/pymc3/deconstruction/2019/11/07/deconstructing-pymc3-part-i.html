@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<!--
+    So Simple Jekyll Theme 3.2.0
+    Copyright 2013-2019 Michael Rose - mademistakes.com | @mmistakes
+    Free for personal and commercial use under the MIT license
+    https://github.com/mmistakes/so-simple-theme/blob/master/LICENSE
+-->
+<html lang="en-US" class="no-js">
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  
+
+  
+    <title>Deconstructing PyMC3 : Part I</title>
+    <meta name="description" content="Models in PyMC3 are centered around the Model class. It has references to all random variables (RVs) and computes the model logp and its gradients. Usually, ...">
+    <link rel="canonical" href="http://localhost:4001/pymc3/deconstruction/2019/11/07/deconstructing-pymc3-part-i.html">
+  
+
+  <script>
+    /* Cut the mustard */
+    if ( 'querySelector' in document && 'addEventListener' in window ) {
+      document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + 'js';
+    }
+  </script>
+
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/skins/default.css">
+  
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,400i,700,700i|Lora:400,400i,700,700i">
+  <!-- start custom head snippets -->
+
+<!-- insert favicons. use http://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->
+
+</head>
+
+
+  <body class="layout--post  deconstructing-pymc3-part-i">
+    <nav class="skip-links">
+  <h2 class="screen-reader-text">Skip links</h2>
+  <ul>
+    <li><a href="#primary-nav" class="screen-reader-shortcut">Skip to primary navigation</a></li>
+    <li><a href="#main" class="screen-reader-shortcut">Skip to content</a></li>
+    <li><a href="#footer" class="screen-reader-shortcut">Skip to footer</a></li>
+  </ul>
+</nav>
+
+    
+  <div class="navigation-wrapper">
+    <a href="#menu-toggle" id="menu-toggle">Menu</a>
+    <nav id="primary-nav" class="site-nav animated drop">
+      <ul><li><a href="/">Home</a></li></ul>
+    </nav>
+  </div><!-- /.navigation-wrapper -->
+
+
+    <header class="masthead">
+  <div class="wrap">
+    
+      <a href="/" class="site-logo" rel="home" title="Empirical | Dialectic">
+        <img src="/images/logo-at-1.png" class="site-logo-img animated fadeInDown" alt="Empirical | Dialectic">
+      </a>
+    
+    
+    
+      
+        <div class="site-title animated fadeIn"><a href="/">Empirical | Dialectic</a></div>
+      
+      <p class="site-description animated fadeIn" itemprop="description">Self-prescribed Unconventional Methods for Learning and Discovery</p>
+    
+  </div>
+</header><!-- /.masthead -->
+
+
+    <main id="main" class="main-content" aria-label="Content">
+  <article class="h-entry">
+    
+
+    <div class="page-wrapper">
+      <header class="page-header">
+        
+        
+          <h1 id="page-title" class="page-title p-name">Deconstructing PyMC3 : Part I
+</h1>
+        
+      </header>
+
+      <div class="page-sidebar">
+        <div class="page-author h-card p-author"><img src="/images/dp-black.png" class="author-avatar u-photo" alt="Suriyadeepan Ramamoorthy"><div class="author-info"><div class="author-name">
+        <span class="p-name">Suriyadeepan Ramamoorthy</span>
+      </div><ul class="author-links"><li class="author-link">
+            <a class="u-url" rel="me" href="https://twitter.com/iamdionysus"><i class="fab fa-twitter-square fa-lg" title="Twitter"></i></a>
+          </li></ul>
+
+<span class="read-time">5 min read</span>
+
+    <time class="page-date dt-published" datetime="2019-11-07T01:38:00+05:30"><a class="u-url" href="">November 7, 2019</a>
+</time>
+
+  </div>
+</div>
+
+        
+  <h3 class="page-taxonomies-title">Categories</h3>
+  <ul class="page-taxonomies"><li class="page-taxonomy">pymc3</li><li class="page-taxonomy">deconstruction</li>
+  </ul>
+
+
+        
+
+      </div>
+
+      <div class="page-content">
+        <div class="e-content">
+          <blockquote>
+  <p>Models in PyMC3 are centered around the <code class="highlighter-rouge">Model</code> class. It has references to all random variables (RVs) and computes the model logp and its gradients. Usually, you would instantiate it as part of a with context, as follows:</p>
+</blockquote>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">with</span> <span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">model</span><span class="p">:</span>
+  <span class="c"># model definition</span>
+  <span class="k">pass</span></code></pre></figure>
+
+<p><img src="/images/posts/pymc3/model.png" class="align-left" alt="Instance Creation" width="400" /></p>
+
+<p>What happens behind the scenes while line <code class="highlighter-rouge">#1</code> is executed is all we care about in this blog post. This takes us to <code class="highlighter-rouge">pymc3/model.py</code>. The class <code class="highlighter-rouge">Model</code> extends the classes <code class="highlighter-rouge">Context</code>, <code class="highlighter-rouge">Factor</code>, <code class="highlighter-rouge">WithMemoization</code> and is instantiated via the metaclass <code class="highlighter-rouge">InitContextMeta</code>.</p>
+
+<p><br /></p>
+
+<p>When line <code class="highlighter-rouge">#1</code> is executed, the metaclass <code class="highlighter-rouge">InitContextMeta</code>’s <code class="highlighter-rouge">__call__</code> method is called which executes <code class="highlighter-rouge">__init__</code> method of <code class="highlighter-rouge">Model</code>’s instance in its context. The metaclass consists only of the <code class="highlighter-rouge">__call__</code> method.</p>
+
+<p><img src="/images/posts/pymc3/instance-creation.png" class="align-center" alt="Instance Creation" width="400" /></p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">InitContextMeta</span><span class="p">(</span><span class="nb">type</span><span class="p">):</span>
+  
+  <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">instance</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c"># &lt;&lt;</span>
+    <span class="o">...</span></code></pre></figure>
+
+<p><code class="highlighter-rouge">cls</code> points to <code class="highlighter-rouge">Model</code> class. <code class="highlighter-rouge">Model.__new__</code> is called which creates an instance of <code class="highlighter-rouge">Model</code>. After which the parent instance is resolved and stored at <code class="highlighter-rouge">self._parent</code>. This feature exists to support Model nesting.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"> <span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="n">Factor</span><span class="p">,</span> <span class="n">WithMemoization</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">InitContextMeta</span><span class="p">):</span>
+	  <span class="k">def</span> <span class="nf">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c"># resolves the parent instance</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'model'</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>  <span class="c"># parent explicitly set by user</span>
+            <span class="n">instance</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'model'</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">():</span>  <span class="c"># &lt;&lt;</span>
+            <span class="n">instance</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">instance</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="bp">None</span> </code></pre></figure>
+
+<p>The context manager syntax of <code class="highlighter-rouge">Model</code> is derived from <code class="highlighter-rouge">Context</code> class. Let us take a look.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">Context</span><span class="p">:</span>
+    <span class="n">contexts</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">local</span><span class="p">()</span>  <span class="c"># :: contexts is a thread-local object</span>
+                                  <span class="c"># :: items stored will be hidden from other</span>
+      														<span class="c"># :: threads ::</span>
+    <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="c"># :: add instance to context stack ::</span>
+				<span class="o">...</span>
+        <span class="k">return</span> <span class="bp">self</span>
+
+    <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typ</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+        <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>  <span class="c">#  :: remove instance from context stack ::</span>
+				<span class="o">...</span>
+        
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_contexts</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>  <span class="c"># :: return the thread-local stack ::</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">contexts</span><span class="p">,</span> <span class="s">'stack'</span><span class="p">):</span>
+            <span class="n">cls</span><span class="o">.</span><span class="n">contexts</span><span class="o">.</span><span class="n">stack</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># :: create a stack if one isn't available ::</span>
+        <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">contexts</span><span class="o">.</span><span class="n">stack</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">get_context</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+			<span class="o">...</span>
+      <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c"># :: return the deepest context in the stack ::</span></code></pre></figure>
+
+<p>Notice that <code class="highlighter-rouge">get_contexts</code> is a <code class="highlighter-rouge">@classmethod</code>. Class methods take <code class="highlighter-rouge">cls</code> as their first argument. Since <code class="highlighter-rouge">Model</code> is a child of <code class="highlighter-rouge">Context</code>, <code class="highlighter-rouge">Context.get_contexts</code> is called, which returns an empty stack.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"> <span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="n">Factor</span><span class="p">,</span> <span class="n">WithMemoization</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">InitContextMeta</span><span class="p">):</span>
+	  <span class="k">def</span> <span class="nf">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="c"># resolves the parent instance</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'model'</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">instance</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'model'</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">():</span>
+            <span class="n">instance</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">instance</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="bp">None</span>  <span class="c"># &lt;&lt; parent instance is `None`</span>
+        <span class="o">...</span>
+        <span class="k">return</span> <span class="n">instance</span></code></pre></figure>
+
+<p>We are back to <code class="highlighter-rouge">InitContextMeta.__call__</code> method.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">InitContextMeta</span><span class="p">(</span><span class="nb">type</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">instance</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">with</span> <span class="n">instance</span><span class="p">:</span>  <span class="c"># &lt;&lt; appends context</span>
+            <span class="n">instance</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">instance</span></code></pre></figure>
+
+<p><code class="highlighter-rouge">with instance:</code> invokes <code class="highlighter-rouge">Context.__enter__</code> which simply adds the instance to context stack. Note that <code class="highlighter-rouge">type(self)</code> resolves to <code class="highlighter-rouge">Model</code> class.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+  <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>  <span class="c"># :: add instance to thread-local stack ::</span>
+  <span class="k">return</span> <span class="bp">self</span></code></pre></figure>
+
+<p><code class="highlighter-rouge">Model.__init__</code> method is called within context of instance which creates a bunch of empty variables.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="bp">self</span><span class="o">.</span><span class="n">named_vars</span> <span class="o">=</span> <span class="n">treedict</span><span class="p">()</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">free_RVs</span> <span class="o">=</span> <span class="n">treelist</span><span class="p">()</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">observed_RVs</span> <span class="o">=</span> <span class="n">treelist</span><span class="p">()</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">deterministics</span> <span class="o">=</span> <span class="n">treelist</span><span class="p">()</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">potentials</span> <span class="o">=</span> <span class="n">treelist</span><span class="p">()</span>
+<span class="bp">self</span><span class="o">.</span><span class="n">missing_values</span> <span class="o">=</span> <span class="n">treelist</span><span class="p">()</span></code></pre></figure>
+
+<p>Note that if there exists a parent instance <code class="highlighter-rouge">self._parent</code>, the parent’s variables are added to the instance’s variables as parents.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="bp">self</span><span class="o">.</span><span class="n">named_vars</span> <span class="o">=</span> <span class="n">treedict</span><span class="p">(</span><span class="n">parent</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">named_vars</span><span class="p">)</span>
+<span class="o">...</span></code></pre></figure>
+
+<p>We exit the context <code class="highlighter-rouge">with instance:</code> invoking the <code class="highlighter-rouge">__exit__</code> method which removes the instance from contexts stack.  This takes us back to <code class="highlighter-rouge">InitContextMeta.__call__</code> where the <code class="highlighter-rouge">Model</code> instance is finally returned.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">with</span> <span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">model</span><span class="p">:</span>
+  <span class="o">...</span></code></pre></figure>
+
+<p>The use of context manager syntax here takes us again to <code class="highlighter-rouge">Context.__enter__</code>.  <code class="highlighter-rouge">Model</code> instance is added to context stack. Now we have an empty container for a model. Right now we don’t care about the details of data structures <code class="highlighter-rouge">treelist</code> and <code class="highlighter-rouge">treedict</code>.</p>
+
+<h2 id="reconstruction">Reconstruction</h2>
+
+<p>Let us reconstruct the <code class="highlighter-rouge">Model</code> class with the information available so far.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="kn">import</span> <span class="nn">threading</span>
+
+
+<span class="k">class</span> <span class="nc">Context</span><span class="p">:</span>
+  <span class="n">contexts</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">local</span><span class="p">()</span>  <span class="c"># thread-local storage</span>
+
+  <span class="k">def</span> <span class="nf">__enter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="n">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>  <span class="c"># get a handle to Class `Context`</span>
+    <span class="n">contexts</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()</span>  <span class="c"># call @classmethod `get_contexts`</span>
+    <span class="n">contexts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>  <span class="c"># add instance to contexts</span>
+    <span class="k">return</span> <span class="bp">self</span>
+
+  <span class="k">def</span> <span class="nf">__exit__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">typ</span><span class="p">,</span> <span class="n">value</span><span class="p">,</span> <span class="n">traceback</span><span class="p">):</span>
+    <span class="n">cls</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>  <span class="c"># get a handle to Class `Context`</span>
+    <span class="n">contexts</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()</span>  <span class="c"># call @classmethod `get_contexts`</span>
+    <span class="n">contexts</span><span class="o">.</span><span class="n">pop</span><span class="p">()</span>  <span class="c"># remove instance from contexts stack</span>
+
+  <span class="nd">@classmethod</span>
+  <span class="k">def</span> <span class="nf">get_contexts</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">contexts</span><span class="p">,</span> <span class="s">'stack'</span><span class="p">):</span>  <span class="c"># does `Context.contexts.stack` exist?</span>
+      <span class="n">cls</span><span class="o">.</span><span class="n">contexts</span><span class="o">.</span><span class="n">stack</span> <span class="o">=</span> <span class="p">[]</span>  <span class="c"># create and return an empty stack</span>
+    <span class="k">return</span> <span class="n">cls</span><span class="o">.</span><span class="n">contexts</span><span class="o">.</span><span class="n">stack</span>
+
+  <span class="nd">@classmethod</span>
+  <span class="k">def</span> <span class="nf">get_context</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+    <span class="n">contexts</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">()</span>  <span class="c"># get all contexts</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">contexts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="nb">Exception</span><span class="p">(</span><span class="s">"Context stack is empty!"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">contexts</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c"># return the deepest context</span>
+
+
+<span class="k">class</span> <span class="nc">InitContextMeta</span><span class="p">(</span><span class="nb">type</span><span class="p">):</span>
+  <span class="s">"""Metaclass that runs Model.__init__ in its context"""</span>
+  <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">instance</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c"># create an instance of `Model`</span>
+    <span class="k">with</span> <span class="n">instance</span><span class="p">:</span>  <span class="c"># run __init__ in context</span>
+      <span class="n">instance</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c"># `Model.__init__`</span>
+    <span class="k">return</span> <span class="n">instance</span>
+
+
+<span class="k">class</span> <span class="nc">Model</span><span class="p">(</span><span class="n">Context</span><span class="p">,</span> <span class="n">metaclass</span><span class="o">=</span><span class="n">InitContextMeta</span><span class="p">):</span>
+
+  <span class="k">def</span> <span class="nf">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>  <span class="c"># class method that creates an instance</span>
+    <span class="n">instance</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">)</span>
+    <span class="c"># resolve parent instance</span>
+    <span class="k">if</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_contexts</span><span class="p">():</span>  <span class="c"># if contexts stack isn't empty</span>
+      <span class="n">instance</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_context</span><span class="p">()</span>  <span class="c"># get the deepest context</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="n">instance</span><span class="o">.</span><span class="n">_parent</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">return</span> <span class="n">instance</span>
+
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s">''</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">parent</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">named_vars</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c"># using python dict instead of pymc's treedict</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">free_RVs</span> <span class="o">=</span> <span class="p">[]</span>    <span class="c"># using python list instead of pymc's treelist</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">observed_RVs</span> <span class="o">=</span> <span class="p">[]</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">deterministics</span> <span class="o">=</span> <span class="p">[]</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">potentials</span> <span class="o">=</span> <span class="p">[]</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">missing_values</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">else</span><span class="p">:</span>
+      <span class="k">raise</span> <span class="nb">NotImplementedError</span><span class="p">(</span><span class="s">'We dont care about this case yet!'</span><span class="p">)</span>
+
+  <span class="nd">@property</span>
+  <span class="k">def</span> <span class="nf">parent</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_parent</span>
+  
+  
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">'__main__'</span><span class="p">:</span>
+  <span class="k">with</span> <span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">model</span><span class="p">:</span>
+    <span class="k">pass</span></code></pre></figure>
+
+<p>We were able to build an empty model. In the next post, we’ll deconstruct the process behind <em>Model Definition</em> -  creating and managing random variables within the context of the model.</p>
+
+        </div>
+
+        
+
+        
+
+        <nav class="page-pagination" role="navigation">
+  
+
+  
+</nav>
+
+      </div>
+    </div>
+  </article>
+</main>
+
+
+    <footer id="footer" class="site-footer">
+  <!-- start custom footer snippets -->
+
+<!-- end custom footer snippets -->
+<div class="copyright">
+    
+      <p>&copy; 2019 Empirical | Dialectic. Powered by <a href="https://jekyllrb.com" rel="nofollow">Jekyll</a> &amp; <a href="https://github.com/mmistakes/so-simple-theme" rel="nofollow">So Simple</a>.</p>
+    
+  </div>
+</footer>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+  <script src="/assets/js/main.min.js"></script>
+  <script src="https://use.fontawesome.com/releases/v5.0.12/js/all.js"></script>
+
+
+<!-- MathJax -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+  </body>
+
+</html>

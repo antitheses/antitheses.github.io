@@ -34,6 +34,7 @@ read_time: true
 words_per_minute: 150
 date_format: "%B %-d, %Y"
 search_full_content: true
+google_analytics: UA-78656027-3
 # category_archive_path: "/categories/#"
 # tag_archive_path: "/tags/#"
 

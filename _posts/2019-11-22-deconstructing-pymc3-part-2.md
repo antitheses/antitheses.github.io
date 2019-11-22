@@ -1,6 +1,6 @@
 ---
 layout: post
-title: 'Deconstructing PyMC3 Part II'
+title: 'Deconstructing PyMC3 : Part II'
 date: 2019-11-22 14:16 +0530
 categories: pymc3 deconstruction
 author: suriya

@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<!--
+    So Simple Jekyll Theme 3.2.0
+    Copyright 2013-2019 Michael Rose - mademistakes.com | @mmistakes
+    Free for personal and commercial use under the MIT license
+    https://github.com/mmistakes/so-simple-theme/blob/master/LICENSE
+-->
+<html lang="en-US" class="no-js">
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  
+
+  
+    <title>Deconstructing PyMC3 Part II</title>
+    <meta name="description" content="Random Variables and Prior Distributions">
+    <link rel="canonical" href="http://localhost:4000/pymc3/deconstruction/2019/11/22/deconstructing-pymc3-part-2.html">
+  
+
+  <script>
+    /* Cut the mustard */
+    if ( 'querySelector' in document && 'addEventListener' in window ) {
+      document.documentElement.className = document.documentElement.className.replace(/\bno-js\b/g, '') + 'js';
+    }
+  </script>
+
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/skins/default.css">
+  
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,400i,700,700i|Lora:400,400i,700,700i">
+  <!-- start custom head snippets -->
+
+<!-- insert favicons. use http://realfavicongenerator.net/ -->
+
+<!-- end custom head snippets -->
+
+</head>
+
+
+  <body class="layout--post  deconstructing-pymc3-part-ii">
+    <nav class="skip-links">
+  <h2 class="screen-reader-text">Skip links</h2>
+  <ul>
+    <li><a href="#primary-nav" class="screen-reader-shortcut">Skip to primary navigation</a></li>
+    <li><a href="#main" class="screen-reader-shortcut">Skip to content</a></li>
+    <li><a href="#footer" class="screen-reader-shortcut">Skip to footer</a></li>
+  </ul>
+</nav>
+
+    
+  <div class="navigation-wrapper">
+    <a href="#menu-toggle" id="menu-toggle">Menu</a>
+    <nav id="primary-nav" class="site-nav animated drop">
+      <ul><li><a href="/">Home</a></li></ul>
+    </nav>
+  </div><!-- /.navigation-wrapper -->
+
+
+    <header class="masthead">
+  <div class="wrap">
+    
+      <a href="/" class="site-logo" rel="home" title="Empirical | Dialectic">
+        <img src="/images/logo-at-1.png" class="site-logo-img animated fadeInDown" alt="Empirical | Dialectic">
+      </a>
+    
+    
+    
+      
+        <div class="site-title animated fadeIn"><a href="/">Empirical | Dialectic</a></div>
+      
+      <p class="site-description animated fadeIn" itemprop="description">Self-prescribed Unconventional Methods for Learning and Discovery</p>
+    
+  </div>
+</header><!-- /.masthead -->
+
+
+    <main id="main" class="main-content" aria-label="Content">
+  <article class="h-entry">
+    
+
+    <div class="page-wrapper">
+      <header class="page-header">
+        
+        
+          <h1 id="page-title" class="page-title p-name">Deconstructing PyMC3 Part II
+</h1>
+        
+      </header>
+
+      <div class="page-sidebar">
+        <div class="page-author h-card p-author"><img src="/images/dp-black.png" class="author-avatar u-photo" alt="Suriyadeepan Ramamoorthy"><div class="author-info"><div class="author-name">
+        <span class="p-name">Suriyadeepan Ramamoorthy</span>
+      </div><ul class="author-links"><li class="author-link">
+            <a class="u-url" rel="me" href="https://twitter.com/iamdionysus"><i class="fab fa-twitter-square fa-lg" title="Twitter"></i></a>
+          </li></ul>
+
+<span class="read-time">16 min read</span>
+
+    <time class="page-date dt-published" datetime="2019-11-22T14:16:00+05:30"><a class="u-url" href="">November 22, 2019</a>
+</time>
+
+  </div>
+</div>
+
+        
+  <h3 class="page-taxonomies-title">Categories</h3>
+  
+  <ul class="page-taxonomies"><li class="page-taxonomy">deconstruction</li><li class="page-taxonomy">pymc3</li>
+  </ul>
+
+
+        
+
+      </div>
+
+      <div class="page-content">
+        <div class="e-content">
+          <h2 id="random-variables-and-prior-distributions">Random Variables and Prior Distributions</h2>
+
+<p>In PyMC3, model are defined in terms of random variables. The random variables can be observed variables (observations are available) or unobserved variables, with prior distributions associated with them. They should always be defined within the context of a model.</p>
+
+<p>In the example below, we add an unobserved random variable <code class="highlighter-rouge">x</code>, with a normal prior distribution parameterized by mean <code class="highlighter-rouge">mu</code> and standard deviation <code class="highlighter-rouge">sigma</code>.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="n">mu</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="mf">10.</span>
+<span class="k">with</span> <span class="n">Model</span><span class="p">()</span> <span class="k">as</span> <span class="n">model</span><span class="p">:</span>
+  <span class="c"># model definition</span>
+  <span class="n">x</span> <span class="o">=</span> <span class="n">Normal</span><span class="p">(</span><span class="s">'x'</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="n">sigma</span><span class="p">)</span></code></pre></figure>
+
+<p><img src="/images/posts/pymc3/02-distributions/dist.png" class="align-left" alt="Instance Creation" width="170" /></p>
+
+<p>In this blog post, we’ll examine the process involved in creating a random variable and adding it to the model. Lets fire up <code class="highlighter-rouge">ipdb</code>.</p>
+
+<p>The call to <code class="highlighter-rouge">Normal</code> takes us to the (grand)parent of <code class="highlighter-rouge">Normal</code> class in <code class="highlighter-rouge">pymc3/distributions/distribution.py</code>.  <code class="highlighter-rouge">Distribution.__new__</code> is called. This method creates an instance of <code class="highlighter-rouge">Normal</code> class and attaches it to a random variable and returns the same.</p>
+
+<p><br /></p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">Distribution</span><span class="p">:</span>
+  <span class="s">"""Statistical distribution"""</span>
+  <span class="k">def</span> <span class="nf">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="o">...</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">Model</span><span class="o">.</span><span class="n">get_context</span><span class="p">()</span>  <span class="c"># :: get model from context</span>
+    <span class="o">...</span>                          <span class="c"># :: throw exception if not in context</span>
+    <span class="n">data</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s">'observed'</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>  <span class="c"># :: see if there's data associated</span>
+    <span class="n">cls</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="n">data</span>  <span class="c"># :: attach it to class</span>
+    <span class="n">total_size</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s">'total_size'</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>  <span class="c"># :: get dim of distribution</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">dist</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c"># &lt;- creates an instance of Normal</span>
+    <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">Var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">total_size</span><span class="p">)</span>  <span class="c"># :: model.Var creates an RV</span></code></pre></figure>
+
+<p>The class method <code class="highlighter-rouge">dist</code> creates an instance of <code class="highlighter-rouge">Normal</code>. The call  <code class="highlighter-rouge">__init__</code> triggers <code class="highlighter-rouge">Normal.__init__</code>.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="nd">@classmethod</span>
+<span class="k">def</span> <span class="nf">dist</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+  <span class="n">dist</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">)</span>
+  <span class="n">dist</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">dist</span></code></pre></figure>
+
+<p><code class="highlighter-rouge">Normal.__init__</code> manages parameters of normal distribution <code class="highlighter-rouge">mu</code> and <code class="highlighter-rouge">sigma</code>. Different forms of sigma - <code class="highlighter-rouge">tau</code> and <code class="highlighter-rouge">variance</code> are created. We check if sigma has negative support. Since we don’t define sigma as a distribution, this check doesn’t make sense. Then, we place a call to the parent <code class="highlighter-rouge">Continuous.__init__</code>.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">Normal</span><span class="p">(</span><span class="n">Continuous</span><span class="p">):</span>
+
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mu</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">tau</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">sd</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">sd</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+      <span class="n">sigma</span> <span class="o">=</span> <span class="n">sd</span>
+    <span class="n">tau</span><span class="p">,</span> <span class="n">sigma</span> <span class="o">=</span> <span class="n">get_tau_sigma</span><span class="p">(</span><span class="n">tau</span><span class="o">=</span><span class="n">tau</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">)</span>  <span class="c"># :: get tau from sigma</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">sigma</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sd</span> <span class="o">=</span> <span class="n">tt</span><span class="o">.</span><span class="n">as_tensor_variable</span><span class="p">(</span><span class="n">sigma</span><span class="p">)</span>  <span class="c"># :: set sigma</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">tau</span> <span class="o">=</span> <span class="n">tt</span><span class="o">.</span><span class="n">as_tensor_variable</span><span class="p">(</span><span class="n">tau</span><span class="p">)</span>  <span class="c"># make everything a theano tensor variable</span>
+    <span class="n">mu</span> <span class="o">=</span> <span class="n">tt</span><span class="o">.</span><span class="n">as_tensor_variable</span><span class="p">(</span><span class="n">floatX</span><span class="p">(</span><span class="n">mu</span><span class="p">))</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">mean</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">median</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mu</span> <span class="o">=</span> <span class="n">mu</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">variance</span> <span class="o">=</span> <span class="mf">1.</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">tau</span>  <span class="c"># :: sd^2</span>
+
+    <span class="n">assert_negative_support</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="s">'sigma'</span><span class="p">,</span> <span class="s">'Normal'</span><span class="p">)</span>  <span class="c"># :: check if negative support</span>
+    <span class="n">assert_negative_support</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="s">'tau'</span><span class="p">,</span> <span class="s">'Normal'</span><span class="p">)</span>      <span class="c"># ::  exists </span>
+    <span class="c"># as sigma is not a distribution in our case, there will be no support</span>
+    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c"># &lt;- Call to Continuous.__init__</span></code></pre></figure>
+
+<p>Not much happens in <code class="highlighter-rouge">Continuous.__init__</code>.  In fact, the <code class="highlighter-rouge">Continuous</code> class has no more methods. I believe this is purely an aesthetic choice, to explicitly model the Continuous/Discrete duality. <code class="highlighter-rouge">Distribution.__init__</code> is called in the end.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">Continuous</span><span class="p">(</span><span class="n">Distribution</span><span class="p">):</span>
+  <span class="s">"""Base class for continuous distributions"""</span>
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">defaults</span><span class="o">=</span><span class="p">(</span><span class="s">'median'</span><span class="p">,</span> <span class="s">'mean'</span><span class="p">,</span> <span class="s">'mode'</span><span class="p">),</span>
+               <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+      <span class="n">dtype</span> <span class="o">=</span> <span class="n">theano</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">floatX</span>
+    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">defaults</span><span class="o">=</span><span class="n">defaults</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code></pre></figure>
+
+<p><code class="highlighter-rouge">Distribution.__init__</code> sets the <code class="highlighter-rouge">shape</code>, <code class="highlighter-rouge">dtype</code> and <code class="highlighter-rouge">type</code> (<code class="highlighter-rouge">TensorType</code>) of <code class="highlighter-rouge">Normal</code> instance. We don’t know where <code class="highlighter-rouge">defaults = ('mean', 'median', 'mode')</code> come into play.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">Distribution</span><span class="p">:</span>
+
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="p">,</span> <span class="n">testval</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">defaults</span><span class="o">=</span><span class="p">(),</span>
+      <span class="n">transform</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">broadcastable</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">shape</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_1d</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>  <span class="c"># :: shape = array([]) &lt;- ()</span>
+		<span class="o">...</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">dtype</span>
+    <span class="bp">self</span><span class="o">.</span><span class="nb">type</span> <span class="o">=</span> <span class="n">TensorType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">broadcastable</span><span class="p">)</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">testval</span> <span class="o">=</span> <span class="n">testval</span>      <span class="c"># :: What is the role of `testval`</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">defaults</span> <span class="o">=</span> <span class="n">defaults</span>    <span class="c"># :: ( 'mean', 'median', 'mode' )</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">transform</span>  <span class="c"># :: What is a transform? Must dig into this later!</span></code></pre></figure>
+
+<p>This ends the creation of <code class="highlighter-rouge">Normal</code> instance. <code class="highlighter-rouge">Distribution.dist</code> returns the instance. <code class="highlighter-rouge">__new__</code> creates a free random variable by calling <code class="highlighter-rouge">model.Var</code> method of <code class="highlighter-rouge">Model</code>.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">Distribution</span><span class="p">:</span>
+  <span class="s">"""Statistical distribution"""</span>
+  <span class="k">def</span> <span class="nf">__new__</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+		<span class="o">...</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">dist</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>  <span class="c"># :: method creates an instance of `Normal`</span>
+    <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">Var</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">total_size</span><span class="p">)</span>  <span class="c"># &lt;- creates and returns a FreeRV</span></code></pre></figure>
+
+<p>If there isn’t any data associated, we create a FreeRV with prior distribution <code class="highlighter-rouge">dist</code> (<code class="highlighter-rouge">Normal</code>). We add it to the list of free variables in the model. We also add the random variable as an attribute of the model so we can access it as an attribute, like <code class="highlighter-rouge">model.x</code>.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">Var</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">dist</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">total_size</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+  <span class="s">"""Create and add (un)observed random variable to the model with an
+  appropriate prior distribution.
+  """</span>
+  <span class="o">...</span>
+  <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="s">"transform"</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>      <span class="c"># :: What is a transform?</span>
+      <span class="k">with</span> <span class="bp">self</span><span class="p">:</span>  <span class="c"># :: create FreeRV in model context</span>
+        <span class="n">var</span> <span class="o">=</span> <span class="n">FreeRV</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">distribution</span><span class="o">=</span><span class="n">dist</span><span class="p">,</span>    <span class="c"># &lt;- call to FreeRV.__init__</span>
+                     <span class="n">total_size</span><span class="o">=</span><span class="n">total_size</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="bp">self</span><span class="p">)</span>
+	<span class="o">...</span>
+  <span class="bp">self</span><span class="o">.</span><span class="n">free_RVs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>      <span class="c"># :: add to the list of free variables</span>
+  <span class="bp">self</span><span class="o">.</span><span class="n">add_random_variable</span><span class="p">(</span><span class="n">var</span><span class="p">)</span>  <span class="c"># :: adds random variable as an attribute of model</span>
+  <span class="k">return</span> <span class="n">var</span>                     <span class="c"># ::  so we can access it by name. eg : `model.x`</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">add_random_variable</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">var</span><span class="p">):</span>
+  <span class="s">"""Add a random variable to the named variables of the model."""</span>
+  <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">named_vars</span><span class="o">.</span><span class="n">tree_contains</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+    <span class="k">raise</span> <span class="nb">ValueError</span><span class="p">(</span><span class="s">"Variable name {} already exists."</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">name</span><span class="p">))</span>
+  <span class="bp">self</span><span class="o">.</span><span class="n">named_vars</span><span class="p">[</span><span class="n">var</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">var</span>  <span class="c"># :: add to a list of named variables</span>
+  <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name_of</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">name</span><span class="p">)):</span>  
+    <span class="nb">setattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name_of</span><span class="p">(</span><span class="n">var</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">var</span><span class="p">)</span>   <span class="c"># add as an attribute</span></code></pre></figure>
+
+<p>Now lets take a look at the <code class="highlighter-rouge">FreeRV</code> class. <code class="highlighter-rouge">FreeRV</code> inherits <code class="highlighter-rouge">Factor</code> and <code class="highlighter-rouge">PyMC3Variable</code>. <code class="highlighter-rouge">Factor</code> contains “<em>Common functionality for objects with a log probability density associated with them</em>”. <code class="highlighter-rouge">PyMC3Variable</code> is a wrapper over theano’s <code class="highlighter-rouge">TensorVariable</code> class. This means a <code class="highlighter-rouge">FreeRV</code> instance can behave like a tensor and support tensor operations as well as support distribution-like behaviour, i.e., we could sample from it. We copy the attributes of the normal distribution instance into  <code class="highlighter-rouge">FreeRV</code> - size, shape, etc,. <code class="highlighter-rouge">distribution.logp</code> creates a theano expression for <code class="highlighter-rouge">logp</code> which could be evaluated for any value.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">class</span> <span class="nc">FreeRV</span><span class="p">(</span><span class="n">Factor</span><span class="p">,</span> <span class="n">PyMC3Variable</span><span class="p">):</span>
+  <span class="s">"""Unobserved random variable that a model is specified in terms of."""</span>
+
+  <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">distribution</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">total_size</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+               <span class="n">model</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">...</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">type</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>  <span class="c"># :: set type of distribution as type of FreeRV</span>
+      <span class="nb">type</span> <span class="o">=</span> <span class="n">distribution</span><span class="o">.</span><span class="nb">type</span>  <span class="c"># :: TensorType</span>
+    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="nb">type</span><span class="p">,</span> <span class="n">owner</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>  <span class="c"># Call to Factor -&gt; TensorVariable</span>
+
+    <span class="k">if</span> <span class="n">distribution</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">dshape</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">distribution</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">dsize</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">distribution</span><span class="o">.</span><span class="n">shape</span><span class="p">))</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">distribution</span> <span class="o">=</span> <span class="n">distribution</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">tag</span><span class="o">.</span><span class="n">test_value</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span>  <span class="c"># :: no idea what's happening here or why!</span>
+        <span class="n">distribution</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">distribution</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="o">*</span> <span class="n">distribution</span><span class="o">.</span><span class="n">default</span><span class="p">()</span>  <span class="c"># :: TODO</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">logp_elemwiset</span> <span class="o">=</span> <span class="n">distribution</span><span class="o">.</span><span class="n">logp</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">total_size</span> <span class="o">=</span> <span class="n">total_size</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">model</span>
+      <span class="c"># scale = 1. if total_size is None &lt;- scalar variable</span>
+      <span class="bp">self</span><span class="o">.</span><span class="n">scaling</span> <span class="o">=</span> <span class="n">_get_scaling</span><span class="p">(</span><span class="n">total_size</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span><span class="p">)</span>
+      <span class="n">incorporate_methods</span><span class="p">(</span><span class="n">source</span><span class="o">=</span><span class="n">distribution</span><span class="p">,</span> <span class="n">destination</span><span class="o">=</span><span class="bp">self</span><span class="p">,</span>  <span class="c"># copy the method</span>
+                          <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s">'random'</span><span class="p">],</span>                     <span class="c"># `random` to the</span>
+                          <span class="n">wrapper</span><span class="o">=</span><span class="n">InstanceMethod</span><span class="p">)</span>                 <span class="c"># FreeRV</span>
+      <span class="c"># so we could sample from FreeRV</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">_get_scaling</span><span class="p">(</span><span class="n">total_size</span><span class="p">,</span> <span class="n">shape</span><span class="p">,</span> <span class="n">ndim</span><span class="p">):</span>
+  <span class="s">"""Gets scaling constant for logp"""</span>
+  <span class="k">if</span> <span class="n">total_size</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+    <span class="n">coef</span> <span class="o">=</span> <span class="n">floatX</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+  <span class="o">...</span>
+  <span class="k">return</span> <span class="n">tt</span><span class="o">.</span><span class="n">as_tensor</span><span class="p">(</span><span class="n">floatX</span><span class="p">(</span><span class="n">coef</span><span class="p">))</span></code></pre></figure>
+
+<p><code class="highlighter-rouge">logp</code> calculation happens in <code class="highlighter-rouge">Normal.logp</code> method. <code class="highlighter-rouge">bound</code> method in <code class="highlighter-rouge">pymc3/distributions/dist_math.py</code>, evaluates the expression given as first argument and returns the resulting theano expression if the condition presented as second argument is satisfied. If not it returns negative infinity.</p>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">logp</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+  <span class="s">"""Calculate log-probability of Normal distribution at specified value."""</span>
+	<span class="o">...</span>
+  <span class="k">return</span> <span class="n">bound</span><span class="p">((</span><span class="o">-</span><span class="n">tau</span> <span class="o">*</span> <span class="p">(</span><span class="n">value</span> <span class="o">-</span> <span class="n">mu</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">tt</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">tau</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">))</span> <span class="o">/</span> <span class="mf">2.</span><span class="p">,</span>
+               <span class="n">sigma</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span></code></pre></figure>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">bound</span><span class="p">(</span><span class="n">logp</span><span class="p">,</span> <span class="o">*</span><span class="n">conditions</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+  <span class="s">"""Bounds a log probability density with several conditions."""</span>
+	<span class="o">...</span>
+  <span class="k">return</span> <span class="n">tt</span><span class="o">.</span><span class="n">switch</span><span class="p">(</span><span class="n">alltrue</span><span class="p">(</span><span class="n">conditions</span><span class="p">),</span> <span class="n">logp</span><span class="p">,</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span></code></pre></figure>
+
+<h2 id="reconstruction">Reconstruction</h2>
+
+<p>I’ve created a <a href="https://github.com/suriyadeepan/deconstructing-pymc3">github repo</a> to maintain the reconstructed code. Check out the <a href="https://github.com/suriyadeepan/deconstructing-pymc3/tree/master/reconstruction/02-distributions">code</a> constructed from our examination in this blog post.</p>
+
+<p>In summary, we have looked at how PyMC3 creates and manages random variables of a model. We have learned that random variables (<code class="highlighter-rouge">FreeRV</code>) are associated with prior distributions and they can exhibit distribution-like behaviour and theano tensor-like behaviour. In the next blog, we’ll find out how random sampling is implemented in distributions and how we can evaluate (<code class="highlighter-rouge">logp</code>) arbitrary samples under a given distribution.</p>
+
+        </div>
+
+        
+
+        
+
+        <nav class="page-pagination" role="navigation">
+  
+    <a class="page-previous" href="/pymc3/deconstruction/2019/11/07/deconstructing-pymc3-part-i.html">
+      <h4 class="page-pagination-label">Previous</h4>
+      <span class="page-pagination-title">
+        <i class="fas fa-arrow-left"></i> Deconstructing PyMC3 : Part I
+
+      </span>
+    </a>
+  
+
+  
+</nav>
+
+      </div>
+    </div>
+  </article>
+</main>
+
+
+    <footer id="footer" class="site-footer">
+  <!-- start custom footer snippets -->
+
+<!-- end custom footer snippets -->
+<div class="copyright">
+    
+      <p>&copy; 2019 Empirical | Dialectic. Powered by <a href="https://jekyllrb.com" rel="nofollow">Jekyll</a> &amp; <a href="https://github.com/mmistakes/so-simple-theme" rel="nofollow">So Simple</a>.</p>
+    
+  </div>
+</footer>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
+  <script src="/assets/js/main.min.js"></script>
+  <script src="https://use.fontawesome.com/releases/v5.0.12/js/all.js"></script>
+
+
+<!-- MathJax -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+  </body>
+
+</html>

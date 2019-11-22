@@ -31,7 +31,7 @@ google_fonts:
   - name: "Lora"
     weights: "400,400i,700,700i"
 read_time: true
-words_per_minute: 150
+words_per_minute: 75
 date_format: "%B %-d, %Y"
 search_full_content: true
 google_analytics: UA-78656027-3
